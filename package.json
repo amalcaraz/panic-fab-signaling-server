@@ -27,6 +27,8 @@
     "typescript": "^2.6.1"
   },
   "dependencies": {
-    "nodemon": "^1.12.1"
+    "@types/socket.io": "^1.4.31",
+    "nodemon": "^1.12.1",
+    "socket.io": "^2.0.4"
   }
 }
