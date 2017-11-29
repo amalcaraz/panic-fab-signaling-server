@@ -6,43 +6,83 @@ const signAlignSockets = io.of('/signaling');
 
 console.log('running server...');
 
+
+export interface IICECandidateOutgoingEvent {
+  from: ClientData;
+  candidate: RTCIceCandidate;
+}
+
+export interface IICECandidateIncomingEvent {
+  to: ClientData;
+  candidate: RTCIceCandidate;
+}
+
+export interface ISessionDescriptionOutgoingEvent {
+  from: ClientData;
+  description: RTCSessionDescription;
+}
+
+export interface ISessionDescriptionIncomingEvent {
+  to: ClientData;
+  description: RTCSessionDescription;
+}
+
+
 const clientDataStore = new ClientDataStore();
 
 signAlignSockets
-    .on('connection', (socket: SocketIO.Socket) => {
+  .on('connection', (socket: SocketIO.Socket) => {
 
-        socket.on('login', (loginData: ClientLoginData) => {
+    socket.on('login', (loginData: ClientLoginData) => {
 
-            clientDataStore.set(
-                socket.id,
-                new ClientData(socket.id, loginData.alias, [])
-            );
+      clientDataStore.set(
+        socket.id,
+        new ClientData(socket.id, loginData.alias, [])
+      );
 
-            signAlignSockets.emit('new-peer', clientDataStore.get(socket.id));
-            socket.emit('peer-list', clientDataStore.getClientsDataListFromSocketMap(signAlignSockets.sockets));
+      signAlignSockets.emit('new-peer', clientDataStore.get(socket.id));
+      socket.emit('peer-list', clientDataStore.getClientsDataListFromSocketMap(signAlignSockets.sockets));
 
-        });
-
-        socket.on('ice-candidate', function (from, msg) {
-            console.log('I received an ice candidate message by ', from, ' saying ', msg);
-        });
-
-        socket.on('sdp', function (from, msg) {
-            console.log('I received a sdp message by ', from, ' saying ', msg);
-        });
-
-        socket.on('disconnect', function () {
-
-            socket.on('login', (loginData: ClientLoginData) => {
-
-                clientDataStore.set(
-                    socket.id,
-                    new ClientData(socket.id, loginData.alias, [])
-                );
-
-            });
-
-            signAlignSockets.emit('peer-disconnected');
-
-        });
     });
+
+    socket.on('ice-candidate', (iceEvent: IICECandidateIncomingEvent) => {
+
+      const fromPeer: ClientData | undefined = clientDataStore.get(socket.id);
+
+      if (fromPeer) {
+
+        const message: IICECandidateOutgoingEvent = {
+          from: fromPeer,
+          candidate: iceEvent.candidate
+        };
+
+        signAlignSockets.connected[iceEvent.to.socketId].emit('ice-candidate', message);
+
+      }
+
+    });
+
+    socket.on('sdp', (sdpEvent: ISessionDescriptionIncomingEvent) => {
+
+      const fromPeer: ClientData | undefined = clientDataStore.get(socket.id);
+
+      if (fromPeer) {
+
+        const message: ISessionDescriptionOutgoingEvent = {
+          from: fromPeer,
+          description: sdpEvent.description
+        };
+
+        signAlignSockets.connected[sdpEvent.to.socketId].emit('sdp', message);
+
+      }
+
+    });
+
+    socket.on('disconnect', function () {
+
+      signAlignSockets.emit('peer-disconnected', clientDataStore.get(socket.id));
+      clientDataStore.remove(socket.id);
+
+    });
+  });
