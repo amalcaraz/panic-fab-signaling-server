@@ -1,10 +1,29 @@
 FROM node:8.9.1
-MAINTAINER Angel Manzano Alcaraz <amalcaraz89@gmail.com>
+LABEL maintainer "Angel Manzano Alcaraz <amalcaraz89@gmail.com>"
 
-ADD . /code
+# Update system dependencies
+RUN apt-get update && \
+    apt-get -y install \
+    nano \
+    vim \
+    sudo \
+    apt-transport-https
+
+# Install yarn
+RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
+RUN echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
+RUN sudo apt-get update && sudo apt-get -y install yarn
+
+# Install app dependencies
 WORKDIR /code
+# ADD package*.json ./
+# RUN yarn install
+# RUN yarn run build-ts
+# ADD . .
 
-RUN npm install
-RUN npm run build-ts
+USER node
 
-CMD ["npm", "run", "serve"]
+EXPOSE 3000
+EXPOSE 9229
+ENTRYPOINT [ "./environment/entry.sh" ]
+CMD ["dev"]
